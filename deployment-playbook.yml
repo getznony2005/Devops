@@ -1,0 +1,35 @@
+---
+- name: deploying  L1 project
+  remote_user: jenkins
+  become: yes
+  serial: 1 
+  hosts: localhost
+
+  tasks:
+    - name: pip install
+      shell: pip install docker
+
+    - name: Removing existing application container
+      docker_container:
+        name: test-project
+        state: absent
+      ignore_errors: yes
+
+    - name: Starting application container
+      docker_container:
+          name: test-project
+          image: write2navneetdhiman/test-job
+          state: started    
+          volumes:
+            - /home/navneet/Desktop/navneet
+
+    - pause: seconds=05
+  
+    - name: dokcer logs check
+      shell: 'docker logs test-project'
+      register: command_out
+      become: true
+    - debug: var=command_out.stdout_lines
+
+
+
