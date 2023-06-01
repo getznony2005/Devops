@@ -1,0 +1,67 @@
+def appenv = 'project'
+def jar = 'project/Code/build/libs/spring-boot-with-prometheus-0.1.0.jar'
+def dockerfile = '/home/navneet/Desktop/navneet/'
+def giturl= 'https://github.com/getznony2005/devops.git'
+def branch='project'
+pipeline {
+    agent any 
+    tools {
+        jdk "jdk8"
+    }
+    stages {
+        stage('Prepare Workspace') { 
+            options {
+              timeout(time: 2, unit: 'MINUTES')   // timeout on this stage
+            }
+            steps {
+
+                checkout changelog: false, 
+                poll: false,
+                scm: [$class: 'GitSCM', branches: [[name: "refs/heads/${branch}"]],
+                extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: "${appenv}/Code"]],
+                userRemoteConfigs: [[credentialsId: 'kwikonnect_gitlab', url: "${giturl}"]]]
+            }
+        }
+        
+       stage('Build Project') {
+            environment {
+                APPENV = "${appenv}"
+            }
+           steps {
+               sh "ls -lrth;cd $WORKSPACE/$APPENV/Code ;pwd ;./gradlew clean build "
+               sh "sudo mv /var/lib/jenkins/workspace/test2/project/Code/build/libs/spring-boot-with-prometheus-0.1.0.jar /home/navneet/Desktop/navneet"
+               sh 'echo "BUILD SUCCESS"'
+           }
+       }
+       stage('Docker Build') {
+    	    environment {
+    	        DOCKERFILE = "${dockerfile}"
+    	    }
+            steps {
+      	        sh "sudo docker build -t write2navneetdhiman/test-job:latest $DOCKERFILE"
+            }
+        }
+        stage('Push image to Hub'){
+            steps{
+                script{
+                   withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'dockerlogin')])  {
+                   sh 'docker login -u write2navneetdhiman -p ${dockerlogin}'
+
+}
+                   sh 'docker push  write2navneetdhiman/test-job:latest '
+                }
+            }
+        }
+ 
+          stage('deploy'){
+              steps{
+                  script{
+                      sh"pwd"
+                      sh'ansible-playbook -i project/Codeenv project/Code/deployment-playbook.yml'
+                  }
+              }
+          }  
+           
+    }
+        
+}
